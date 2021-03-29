@@ -1,0 +1,141 @@
+<html>
+
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script type="text/javascript" src="https://player.idomoo.com/latest/main.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
+  <style>
+    /*Player defaults overrides*/
+
+    button .vjs-big-play-button {
+      background-image: none !important
+    }
+
+
+    /*Pop-ups + jquery modal default style overrides*/
+
+    .vjs-idm-popup {
+      position: absolute !important;
+      background-repeat: no-repeat !important;
+      background-position-x: 50% !important;
+      background-size: 100% !important;
+      box-sizing: unset !important;
+      padding: 0 !important;
+      z-index: 9999 !important;
+      max-width: inherit !important;
+    }
+
+    .vjs-idm-popup img {
+      vertical-align: top;
+      width: 100%;
+      opacity: 0;
+    }
+
+    .jquery-modal.blocker.current {
+      z-index: 55 !important;
+    }
+
+    .popup-video {
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id='idm_player'></div>
+  <script>
+    //Initialize Idomoo player
+    var player_options = {
+      //Hard-coded here for demo purpose only, the video source should be assigned via page URL
+      src: "https://e.idomoo.com/3830/0000/oh13g361h81y2mw6k143h1svjq9a2dj72pfag1f1k2y.mp4",
+      interactive: true,
+      size: "HD",
+      ratio: "16:9",
+      analytics_env: "us",
+      autoplay: false,
+      idm_logo: false,
+      remove_gif: true,
+      mute: false
+    };
+
+    idmPlayerCreate(player_options);
+
+    //For old browsers compatibility: use babel to transpile the below code according to you needs
+
+    const player_id = "idm_player";
+    const player = window[player_id];
+    //The images are hosted on our side for the demo, should be replaced by actual URLs
+    const popupImages = {
+      "1001": "https://videos.comunicacionesaclientes.com/Test/1001.mp4",
+      "1002": "https://videos.comunicacionesaclientes.com/Test/1002.mp4",
+    };
+
+    //Build pop-ups and pre-load images
+    let popups = {};
+    for (const key in popupImages) {
+      let link = `${popupImages[key]}`;
+      if (link.indexOf('.mp4') > -1) {
+        // Video case
+        popups[key] = $(
+          `<div id="hotspot-popup-${key}" class="vjs-idm-popup modal"><video class="popup-video" id="popup-video-${key}"><source src="${link}" type="video/mp4"></video></div>`
+        );
+      } else {
+        // Image case
+        popups[key] = $(
+          `<div id="hotspot-popup-${key}" class="vjs-idm-popup modal"><img src="${link}"/></div>`
+        );
+      }
+      popups[key].css("background-image", `url("${link}")`);
+      popups[key].appendTo($(`#${player_id}`));
+    }
+
+    player.ready(function () {
+      const $videojs = $(`#${player_id} .video-js`);
+
+      const player_measures = document.querySelector('#idm_player').getBoundingClientRect();
+      const popupModal = document.querySelector('.vjs-idm-popup.modal');
+      for (const key in popupImages) {
+        popups[key].css("height", `${player_measures.height}px`);
+        popups[key].css("width", `${player_measures.width}px`);
+        popups[key].css("top", `${player_measures.top}px`);
+        popups[key].css("left", `${player_measures.left}px`);
+      }
+
+      //Handle events emitted on hotspot click
+      player.on("userevent", function (event) {
+        //Display pop-up according to corresponding event_id (1 to 4)
+        popups[event.value.event_id].modal({
+          fadeDuration: 1000,
+          escapeClose: false,
+          clickClose: false,
+          showClose: false
+        });
+        player.pause();
+        $(`#popup-video-${event.value.event_id}`)[0].play();
+        $(`#popup-video-${event.value.event_id}`)[0].addEventListener('ended', function () {
+          $(`#popup-video-${event.value.event_id}`)[0].pause();
+          $.modal.close()
+        });
+      });
+
+      //Resume playback after pop-up close
+      $(".vjs-idm-popup").on($.modal.AFTER_CLOSE, function (event, modal) {
+        $('[id^="popup-video-"]').each(function () {
+          $(this).attr('autoplay', null);
+          $(this)[0].pause();
+        })
+        player.play();
+      });
+
+      //Full screen support
+      $(".vjs-idm-popup").on($.modal.BLOCK, function (event, modal) {
+        if ($videojs.hasClass("vjs-fullscreen")) {
+          modal.$blocker.appendTo($videojs);
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>
